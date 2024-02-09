@@ -18,8 +18,8 @@ RUN wget https://files.pythonhosted.org/packages/97/32/794f9a983d379e5327b4b9edd
 ENV CIBUILDWHEEL=1
 
 COPY *.patch .packages/ha-av
-RUN ls -lA .packages/ha-av
+RUN ls -lA .packages/ha-av/
 WORKDIR pyav-ffmpeg
-RUN git apply ../.packages/ha-av/${VERSION}.patch
+#RUN git apply ../.packages/ha-av/${VERSION}.patch
 RUN python3.8 scripts/build-ffmpeg.py /tmp/vendor 1 scripts/build-ffmpeg.py /tmp/vendor 1
 WORKDIR ..

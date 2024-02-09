@@ -1,0 +1,505 @@
+diff --git a/patches/aom.patch b/patches/aom.patch
+new file mode 100644
+index 0000000..9dec5b9
+--- /dev/null
++++ b/patches/aom.patch
+@@ -0,0 +1,16 @@
++diff -urN libaom2/build/cmake/toolchains/armv7-linux-gcc.cmake libaom/build/cmake/toolchains/armv7-linux-gcc.cmake
++--- libaom2/build/cmake/toolchains/armv7-linux-gcc.cmake	2021-10-14 14:05:43.000000000 -0400
+++++ libaom/build/cmake/toolchains/armv7-linux-gcc.cmake	2023-01-20 16:44:04.367380000 -0500
++@@ -25,9 +25,9 @@
++   set(AOM_EXTRA_TOOLCHAIN_FLAGS "-mfloat-abi=softfp")
++ endif()
++ 
++-set(CMAKE_C_COMPILER ${CROSS}gcc)
++-set(CMAKE_CXX_COMPILER ${CROSS}g++)
++-set(AS_EXECUTABLE ${CROSS}as)
+++#set(CMAKE_C_COMPILER ${CROSS}gcc)
+++#set(CMAKE_CXX_COMPILER ${CROSS}g++)
+++#set(AS_EXECUTABLE ${CROSS}as)
++ set(CMAKE_C_COMPILER_ARG1 "-march=armv7-a ${AOM_EXTRA_TOOLCHAIN_FLAGS}")
++ set(CMAKE_CXX_COMPILER_ARG1 "-march=armv7-a ${AOM_EXTRA_TOOLCHAIN_FLAGS}")
++ set(AOM_AS_FLAGS --defsym ARCHITECTURE=7 -march=armv7-a -mfpu=neon
+diff --git a/patches/harfbuzz.patch b/patches/harfbuzz.patch
+index a07fcae..4506e74 100644
+--- a/patches/harfbuzz.patch
++++ b/patches/harfbuzz.patch
+@@ -10,3 +10,336 @@ diff -urN harfbuzz-4.1.0.orig/configure harfbuzz-4.1.0/configure
+  	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking pkg-config is at least version $_pkg_min_version" >&5
+  $as_echo_n "checking pkg-config is at least version $_pkg_min_version... " >&6; }
+  	if $PKG_CONFIG --atleast-pkgconfig-version $_pkg_min_version; then
++diff -urN harfbuzz-4.1.0.orig/src/hb-meta.hh harfbuzz-4.1.0/src/hb-meta.hh
++--- harfbuzz-4.1.0.orig/src/hb-meta.hh	2022-12-24 21:45:13.514638000 -0500
+++++ harfbuzz-4.1.0/src/hb-meta.hh	2022-12-24 21:53:21.921867000 -0500
++@@ -188,6 +188,17 @@
++ template <> struct hb_int_max<unsigned long long>	: hb_integral_constant<unsigned long long,	ULLONG_MAX>	{};
++ #define hb_int_max(T) hb_int_max<T>::value
++ 
+++#if __GNUG__ && __GNUC__ < 5
+++#define hb_is_trivially_copyable(T) __has_trivial_copy(T)
+++#define hb_is_trivially_copy_assignable(T) (__has_trivial_copy(T) && __has_trivial_assign(T))
+++#define hb_is_trivially_constructible(T) __has_trivial_constructor(T)
+++#define hb_is_trivially_destructible(T) __has_trivial_destructor(T)
+++#else
+++#define hb_is_trivially_copyable(T) std::is_trivially_copyable<T>::value
+++#define hb_is_trivially_copy_assignable(T) std::is_trivially_copy_assignable<T>::value
+++#define hb_is_trivially_constructible(T) std::is_trivially_constructible<T>::value
+++#define hb_is_trivially_destructible(T) std::is_trivially_destructible<T>::value
+++#endif
++ 
++ /* Class traits. */
++ 
++diff -urN harfbuzz-4.1.0.orig/src/hb-open-type.hh harfbuzz-4.1.0/src/hb-open-type.hh
++--- harfbuzz-4.1.0.orig/src/hb-open-type.hh	2022-12-24 21:45:13.514638000 -0500
+++++ harfbuzz-4.1.0/src/hb-open-type.hh	2022-12-24 21:53:21.921867000 -0500
++@@ -33,6 +33,7 @@
++ #include "hb-blob.hh"
++ #include "hb-face.hh"
++ #include "hb-machinery.hh"
+++#include "hb-meta.hh"
++ #include "hb-subset.hh"
++ 
++ 
++@@ -518,7 +519,7 @@
++   {
++     TRACE_SANITIZE (this);
++     if (unlikely (!sanitize_shallow (c, count))) return_trace (false);
++-    if (!sizeof... (Ts) && std::is_trivially_copyable<Type>::value) return_trace (true);
+++    if (!sizeof... (Ts) && hb_is_trivially_copyable(Type)) return_trace (true);
++     for (unsigned int i = 0; i < count; i++)
++       if (unlikely (!c->dispatch (arrayZ[i], std::forward<Ts> (ds)...)))
++ 	return_trace (false);
++@@ -707,7 +708,7 @@
++   {
++     TRACE_SANITIZE (this);
++     if (unlikely (!sanitize_shallow (c))) return_trace (false);
++-    if (!sizeof... (Ts) && std::is_trivially_copyable<Type>::value) return_trace (true);
+++    if (!sizeof... (Ts) && hb_is_trivially_copyable(Type)) return_trace (true);
++     unsigned int count = len;
++     for (unsigned int i = 0; i < count; i++)
++       if (unlikely (!c->dispatch (arrayZ[i], std::forward<Ts> (ds)...)))
++@@ -835,7 +836,7 @@
++   {
++     TRACE_SANITIZE (this);
++     if (unlikely (!sanitize_shallow (c))) return_trace (false);
++-    if (!sizeof... (Ts) && std::is_trivially_copyable<Type>::value) return_trace (true);
+++    if (!sizeof... (Ts) && hb_is_trivially_copyable(Type)) return_trace (true);
++     unsigned int count = get_length ();
++     for (unsigned int i = 0; i < count; i++)
++       if (unlikely (!c->dispatch (arrayZ[i], std::forward<Ts> (ds)...)))
++@@ -884,7 +885,7 @@
++   {
++     TRACE_SANITIZE (this);
++     if (unlikely (!sanitize_shallow (c))) return_trace (false);
++-    if (!sizeof... (Ts) && std::is_trivially_copyable<Type>::value) return_trace (true);
+++    if (!sizeof... (Ts) && hb_is_trivially_copyable(Type)) return_trace (true);
++     unsigned int count = lenM1 + 1;
++     for (unsigned int i = 0; i < count; i++)
++       if (unlikely (!c->dispatch (arrayZ[i], std::forward<Ts> (ds)...)))
++@@ -1070,7 +1071,7 @@
++   {
++     TRACE_SANITIZE (this);
++     if (unlikely (!sanitize_shallow (c))) return_trace (false);
++-    if (!sizeof... (Ts) && std::is_trivially_copyable<Type>::value) return_trace (true);
+++    if (!sizeof... (Ts) && hb_is_trivially_copyable(Type)) return_trace (true);
++     unsigned int count = get_length ();
++     for (unsigned int i = 0; i < count; i++)
++       if (unlikely (!(*this)[i].sanitize (c, std::forward<Ts> (ds)...)))
++diff -urN harfbuzz-4.1.0.orig/src/hb-vector.hh harfbuzz-4.1.0/src/hb-vector.hh
++--- harfbuzz-4.1.0.orig/src/hb-vector.hh	2022-12-24 21:45:13.524638000 -0500
+++++ harfbuzz-4.1.0/src/hb-vector.hh	2022-12-24 21:53:21.921867000 -0500
++@@ -29,6 +29,7 @@
++ 
++ #include "hb.hh"
++ #include "hb-array.hh"
+++#include "hb-meta.hh"
++ #include "hb-null.hh"
++ 
++ 
++@@ -203,14 +204,14 @@
++   bool in_error () const { return allocated < 0; }
++ 
++   template <typename T = Type,
++-	    hb_enable_if (std::is_trivially_copy_assignable<T>::value)>
+++	    hb_enable_if (hb_is_trivially_copy_assignable(T))>
++   Type *
++   realloc_vector (unsigned new_allocated)
++   {
++     return (Type *) hb_realloc (arrayZ, new_allocated * sizeof (Type));
++   }
++   template <typename T = Type,
++-	    hb_enable_if (!std::is_trivially_copy_assignable<T>::value)>
+++	    hb_enable_if (!hb_is_trivially_copy_assignable(T))>
++   Type *
++   realloc_vector (unsigned new_allocated)
++   {
++@@ -230,7 +231,7 @@
++   }
++ 
++   template <typename T = Type,
++-	    hb_enable_if (std::is_trivially_constructible<T>::value ||
+++	    hb_enable_if (hb_is_trivially_constructible(T) ||
++ 			  !std::is_default_constructible<T>::value)>
++   void
++   grow_vector (unsigned size)
++@@ -239,7 +240,7 @@
++     length = size;
++   }
++   template <typename T = Type,
++-	    hb_enable_if (!std::is_trivially_constructible<T>::value &&
+++	    hb_enable_if (!hb_is_trivially_constructible(T) &&
++ 			   std::is_default_constructible<T>::value)>
++   void
++   grow_vector (unsigned size)
++@@ -252,14 +253,14 @@
++   }
++ 
++   template <typename T = Type,
++-	    hb_enable_if (std::is_trivially_destructible<T>::value)>
+++	    hb_enable_if (hb_is_trivially_destructible(T))>
++   void
++   shrink_vector (unsigned size)
++   {
++     length = size;
++   }
++   template <typename T = Type,
++-	    hb_enable_if (!std::is_trivially_destructible<T>::value)>
+++	    hb_enable_if (!hb_is_trivially_destructible(T))>
++   void
++   shrink_vector (unsigned size)
++   {
++@@ -271,7 +272,7 @@
++   }
++ 
++   template <typename T = Type,
++-	    hb_enable_if (std::is_trivially_copy_assignable<T>::value)>
+++	    hb_enable_if (hb_is_trivially_copy_assignable(T))>
++   void
++   shift_down_vector (unsigned i)
++   {
++@@ -280,7 +281,7 @@
++ 	     (length - i) * sizeof (Type));
++   }
++   template <typename T = Type,
++-	    hb_enable_if (!std::is_trivially_copy_assignable<T>::value)>
+++	    hb_enable_if (!hb_is_trivially_copy_assignable(T))>
++   void
++   shift_down_vector (unsigned i)
++   {
++diff -urN harfbuzz-4.1.0.orig/src/hb-repacker.hh harfbuzz-4.1.0.2/src/hb-repacker.hh
++--- harfbuzz-4.1.0.orig/src/hb-repacker.hh	2022-12-24 21:45:13.514638000 -0500
+++++ harfbuzz-4.1.0.2/src/hb-repacker.hh	2022-12-25 14:21:21.909220000 -0500
++@@ -165,7 +165,8 @@
++         v->obj = *objects[i];
++       if (!removed_nil) continue;
++       // Fix indices to account for removed nil object.
++-      for (auto& l : v->obj.all_links_writer ()) {
+++      for (auto& l : hb_concat (v->obj.real_links.writer (),
+++                                v->obj.virtual_links.writer ())) {
++         l.objidx--;
++       }
++     }
++@@ -281,7 +282,7 @@
++       sorted_graph[new_id] = next;
++       id_map[next_id] = new_id--;
++ 
++-      for (const auto& link : next.obj.all_links ()) {
+++      for (const auto& link : hb_concat (next.obj.real_links, next.obj.virtual_links)) {
++         removed_edges[link.objidx]++;
++         if (!(vertices_[link.objidx].incoming_edges () - removed_edges[link.objidx]))
++           queue.push (link.objidx);
++@@ -335,7 +336,7 @@
++       sorted_graph[new_id] = next;
++       id_map[next_id] = new_id--;
++ 
++-      for (const auto& link : next.obj.all_links ()) {
+++      for (const auto& link : hb_concat (next.obj.real_links, next.obj.virtual_links)) {
++         removed_edges[link.objidx]++;
++         if (!(vertices_[link.objidx].incoming_edges () - removed_edges[link.objidx]))
++           // Add the order that the links were encountered to the priority.
++@@ -494,7 +495,8 @@
++ 
++   void find_subgraph (unsigned node_idx, hb_hashmap_t<unsigned, unsigned>& subgraph)
++   {
++-    for (const auto& link : vertices_[node_idx].obj.all_links ())
+++    for (const auto& link : hb_concat (vertices_[node_idx].obj.real_links,
+++                                       vertices_[node_idx].obj.virtual_links))
++     {
++       if (subgraph.has (link.objidx))
++       {
++@@ -510,7 +512,8 @@
++   {
++     if (subgraph.has (node_idx)) return;
++     subgraph.add (node_idx);
++-    for (const auto& link : vertices_[node_idx].obj.all_links ())
+++    for (const auto& link : hb_concat (vertices_[node_idx].obj.real_links,
+++                                       vertices_[node_idx].obj.virtual_links))
++       find_subgraph (link.objidx, subgraph);
++   }
++ 
++@@ -525,7 +528,8 @@
++       return;
++ 
++     index_map.set (node_idx, duplicate (node_idx));
++-    for (const auto& l : object (node_idx).all_links ()) {
+++    for (const auto& l : hb_concat (object (node_idx).real_links,
+++                                    object (node_idx).virtual_links)) {
++       duplicate_subgraph (l.objidx, index_map);
++     }
++   }
++@@ -573,7 +577,8 @@
++     vertices_[vertices_.length - 1] = root;
++ 
++     // Since the root moved, update the parents arrays of all children on the root.
++-    for (const auto& l : root.obj.all_links ())
+++    for (const auto& l : hb_concat (root.obj.real_links,
+++                                    root.obj.virtual_links))
++       vertices_[l.objidx].remap_parent (root_idx () - 1, root_idx ());
++ 
++     return clone_idx;
++@@ -589,7 +594,8 @@
++     update_parents ();
++ 
++     unsigned links_to_child = 0;
++-    for (const auto& l : vertices_[parent_idx].obj.all_links ())
+++    for (const auto& l : hb_concat (vertices_[parent_idx].obj.real_links,
+++                                    vertices_[parent_idx].obj.virtual_links))
++     {
++       if (l.objidx == child_idx) links_to_child++;
++     }
++@@ -612,7 +618,8 @@
++     if (parent_idx == clone_idx) parent_idx++;
++ 
++     auto& parent = vertices_[parent_idx];
++-    for (auto& l : parent.obj.all_links_writer ())
+++    for (auto& l : hb_concat (parent.obj.real_links.writer (),
+++                              parent.obj.virtual_links.writer ()))
++     {
++       if (l.objidx != child_idx)
++         continue;
++@@ -635,7 +642,8 @@
++     // to update distances or edge counts.
++     auto& parent = vertices_[parent_idx].obj;
++     bool made_change = false;
++-    for (auto& l : parent.all_links_writer ())
+++    for (auto& l : hb_concat (parent.real_links.writer (),
+++                              parent.virtual_links.writer ()))
++       made_change |= vertices_[l.objidx].raise_priority ();
++     return made_change;
++   }
++@@ -813,7 +821,8 @@
++ 
++     for (unsigned p = 0; p < vertices_.length; p++)
++     {
++-      for (auto& l : vertices_[p].obj.all_links ())
+++      for (auto& l : hb_concat (vertices_[p].obj.real_links,
+++                                vertices_[p].obj.virtual_links))
++       {
++         vertices_[l.objidx].parents.push (p);
++       }
++@@ -881,7 +890,8 @@
++       int64_t next_distance = vertices_[next_idx].distance;
++       visited[next_idx] = true;
++ 
++-      for (const auto& link : next.obj.all_links ())
+++      for (const auto& link : hb_concat (next.obj.real_links,
+++                                         next.obj.virtual_links))
++       {
++         if (visited[link.objidx]) continue;
++ 
++@@ -980,7 +990,8 @@
++     if (!id_map) return;
++     for (unsigned i : subgraph)
++     {
++-      for (auto& link : vertices_[i].obj.all_links_writer ())
+++      for (auto& link : hb_concat (vertices_[i].obj.real_links.writer (),
+++                                   vertices_[i].obj.virtual_links.writer ()))
++       {
++         if (!id_map.has (link.objidx)) continue;
++         if (only_wide && !(link.width == 4 && !link.is_signed)) continue;
++@@ -999,7 +1010,8 @@
++     for (unsigned i = 0; i < sorted_graph->length; i++)
++     {
++       (*sorted_graph)[i].remap_parents (id_map);
++-      for (auto& link : (*sorted_graph)[i].obj.all_links_writer ())
+++      for (auto& link : hb_concat ((*sorted_graph)[i].obj.real_links.writer (),
+++                                   (*sorted_graph)[i].obj.virtual_links.writer ()))
++       {
++         link.objidx = id_map[link.objidx];
++       }
++@@ -1080,7 +1092,8 @@
++     const auto& v = vertices_[start_idx];
++ 
++     // Graph is treated as undirected so search children and parents of start_idx
++-    for (const auto& l : v.obj.all_links ())
+++    for (const auto& l : hb_concat (v.obj.real_links,
+++                                    v.obj.virtual_links))
++       find_connected_nodes (l.objidx, targets, visited, connected);
++ 
++     for (unsigned p : v.parents)
++diff -urN harfbuzz-4.1.0.orig/src/hb-serialize.hh harfbuzz-4.1.0.2/src/hb-serialize.hh
++--- harfbuzz-4.1.0.orig/src/hb-serialize.hh	2022-12-24 21:45:13.524638000 -0500
+++++ harfbuzz-4.1.0.2/src/hb-serialize.hh	2022-12-25 14:15:06.297886000 -0500
++@@ -74,7 +74,7 @@
++     }
++ 
++     object_t () = default;
++-    
+++
++ #ifdef HB_EXPERIMENTAL_API
++     object_t (const hb_object_t &o)
++     {
++@@ -137,11 +137,6 @@
++     hb_vector_t<link_t> real_links;
++     hb_vector_t<link_t> virtual_links;
++     object_t *next;
++-
++-    auto all_links () const HB_AUTO_RETURN
++-        (( hb_concat (this->real_links, this->virtual_links) ));
++-    auto all_links_writer () HB_AUTO_RETURN
++-        (( hb_concat (this->real_links.writer (), this->virtual_links.writer ()) ));
++   };
++ 
++   struct snapshot_t
+diff --git a/patches/vpx.patch b/patches/vpx.patch
+index 94644ea..3e75409 100644
+--- a/patches/vpx.patch
++++ b/patches/vpx.patch
+@@ -12,7 +12,7 @@
+ @@ -336,6 +336,20 @@
+          $$(filter %.o,$$^) $$(extralibs) $$(EXPORTS_FILE)
+  endef
+- 
++
+ +define dll_gnu_template
+ +# Not using a pattern rule here because we don't want to generate empty
+ +# archives when they are listed as a dependency in files not responsible
+@@ -27,7 +27,7 @@
+ +            -Wl,--out-implib=$$(subst $(2),.dll.a,$(1)) $$(filter %.o,$$^) $$(extralibs)
+ +endef
+ +
+- 
++
+  #
+  # Get current configuration
+ @@ -395,6 +409,7 @@
+@@ -35,7 +35,7 @@
+  $(foreach lib,$(filter %$(SO_VERSION_MAJOR).dylib,$(LIBS)),$(eval $(call dl_template,$(lib))))
+  $(foreach lib,$(filter %$(SO_VERSION_MAJOR).dll,$(LIBS)),$(eval $(call dll_template,$(lib))))
+ +$(foreach lib,$(filter %-$(VERSION_MAJOR).dll,$(LIBS)),$(eval $(call dll_gnu_template,$(lib),-$(VERSION_MAJOR).dll)))
+- 
++
+  INSTALL-LIBS=$(call cond_enabled,CONFIG_INSTALL_LIBS,INSTALL-LIBS)
+  ifeq ($(MAKECMDGOALS),dist)
+ --- libvpx-1.11.0.orig/build/make/configure.sh  	2021-10-06 19:41:19.000000000 +0200
+@@ -65,8 +65,17 @@
+ +    die "Bindir ${bindir} must be a subdirectory of ${prefix}"
+ +  fi
+  }
+- 
++
+  post_process_cmdline() {
++@@ -748,7 +748,7 @@
++       aarch64*)
++         tgt_isa=arm64
++         ;;
++-      armv7*-hardfloat* | armv7*-gnueabihf | arm-*-gnueabihf)
+++      armv7*-hardfloat* | armv7h* | armv7*-gnueabihf | arm-*-gnueabihf)
++         tgt_isa=armv7
++         float_abi=hard
++         ;;
+ --- libvpx-1.11.0.orig/configure	2021-10-06 19:41:19.000000000 +0200
+ +++ libvpx-1.11.0/configure         2022-03-29 19:54:58.000000000 +0200
+ @@ -501,6 +501,7 @@
+@@ -74,9 +83,9 @@
+  endif
+  LIBSUBDIR=${libdir##${prefix}/}
+ +BINSUBDIR=${bindir##${prefix}/}
+- 
++
+  VERSION_STRING=${VERSION_STRING}
+- 
++
+ @@ -539,6 +540,8 @@
+          *)
+              if enabled gnu; then
+@@ -115,13 +124,13 @@
+  endif
+  endif
+ +endif
+- 
++
+  LIBS-$(CONFIG_SHARED) += $(BUILD_PFX)$(LIBVPX_SO)\
+                             $(notdir $(LIBVPX_SO_SYMLINKS)) \
+ @@ -353,6 +362,10 @@ libvpx_dll.a: $(LIBVPX_SO)
+  	$(qexec)emximp -o $@ $<
+  CLEAN-OBJS += libvpx_dll.a
+- 
++
+ +libvpx.dll.a: $(LIBVPX_SO)
+ +	@echo "    [IMPLIB] $@"
+ +CLEAN-OBJS += libvpx.dll.a
+diff --git a/patches/x265.patch b/patches/x265.patch
+index 95203f3..dd50219 100644
+--- a/patches/x265.patch
++++ b/patches/x265.patch
+@@ -266,3 +266,16 @@ diff -urN x265_3.5.orig/source/test/testharness.h x265_3.5/source/test/testharne
+  /* fallback for older GCC/MinGW */
+  static inline uint32_t __rdtsc(void)
+  {
++diff -urN x265_3.5/source/CMakeLists.txt x265_3.5.new/source/CMakeLists.txt
++--- x265_3.5/source/CMakeLists.txt	2021-03-16 08:53:00.000000000 -0400
+++++ x265_3.5.new/source/CMakeLists.txt	2023-01-21 10:02:18.197996000 -0500
++@@ -252,7 +252,7 @@
++         else()
++             find_package(Neon)
++             if(CPU_HAS_NEON)
++-                set(ARM_ARGS -mcpu=native -mfloat-abi=hard -mfpu=neon -marm -fPIC)
+++                set(ARM_ARGS -mcpu=cortex-a8 -mfloat-abi=hard -mfpu=neon -marm -fPIC)
++                 add_definitions(-DHAVE_NEON)
++             else()
++                 set(ARM_ARGS -mcpu=native -mfloat-abi=hard -mfpu=vfp -marm)
++
+diff --git a/scripts/build-ffmpeg.py b/scripts/build-ffmpeg.py
+index 1788e6b..e59e3d7 100644
+--- a/scripts/build-ffmpeg.py
++++ b/scripts/build-ffmpeg.py
+@@ -55,7 +55,7 @@ if not os.path.exists(output_tarball):
+             run(["where", tool])
+ 
+     with log_group("install python packages"):
+-        run(["pip", "install", "cmake", "meson", "ninja"])
++        run(["pip", "install", "meson"])
+ 
+     # build tools
+ 
+@@ -97,7 +97,7 @@ if not os.path.exists(output_tarball):
+         ),
+         Package(
+             name="gmp",
+-            source_url="https://gmplib.org/download/gmp/gmp-6.2.1.tar.xz",
++            source_url="https://github.com/bjia56/armv7l-wheels/releases/download/build-dependency-archives/gmp-6.2.1.tar.xz",
+             # out-of-tree builds fail on Windows
+             build_dir=".",
+         ),
+@@ -185,6 +185,7 @@ if not os.path.exists(output_tarball):
+                 "-DENABLE_EXAMPLES=0",
+                 "-DENABLE_TESTS=0",
+                 "-DENABLE_TOOLS=0",
++                f"-DCMAKE_TOOLCHAIN_FILE={os.path.join(builder.build_dir, 'aom')}/build/cmake/toolchains/armv7-linux-gcc.cmake",
+             ],
+             build_parallel=False,
+         ),
+diff --git a/scripts/cibuildpkg.py b/scripts/cibuildpkg.py
+index e7b941c..ca420c6 100644
+--- a/scripts/cibuildpkg.py
++++ b/scripts/cibuildpkg.py
+@@ -85,7 +85,7 @@ def make_args(*, parallel: bool) -> List[str]:
+     args = []
+ 
+     # do not parallelize build when running in qemu
+-    if parallel and platform.machine() not in ["aarch64", "ppc64le", "s390x"]:
++    if parallel and platform.machine() not in ["aarch64", "ppc64le", "s390x", "armv7l"]:
+         args.append("-j")
+ 
+     return args

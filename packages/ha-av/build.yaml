@@ -1,0 +1,17 @@
+strategy: dockerfile
+source:
+- ./Dockerfile.stage1
+- ./Dockerfile.stage2
+- ./Dockerfile.stage3
+- ./Dockerfile.stage4
+
+python:
+  versions:
+  - "3.7"
+  - "3.8"
+  - "3.9"
+  - "3.10"
+
+package:
+  versions:
+  - 9.2.0

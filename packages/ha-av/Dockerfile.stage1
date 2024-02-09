@@ -1,0 +1,22 @@
+ARG VERSION
+
+
+FROM base AS ver-9.2.0
+ENV FFMPEG_BUILD_VER=4.4.1-7
+
+
+FROM ver-${VERSION}
+ARG PYTHON_VERSION
+ARG VERSION
+ARG OUTPUT_DIR
+
+RUN wget https://files.pythonhosted.org/packages/97/32/794f9a983d379e5327b4b9eddab0e427cce80ee9d17c8aff9220121c2494/ha-av-10.1.1.tar.gz && \
+    tar -zxf ha-av-10.1.1.tar.gz && \
+    mv ha-av-10.1.1 pyav-ffmpeg
+ENV CIBUILDWHEEL=1
+
+COPY *.patch .packages/av
+WORKDIR pyav-ffmpeg
+RUN git apply ../${VERSION}.patch
+RUN python3.8 scripts/build-ffmpeg.py /tmp/vendor 1 scripts/build-ffmpeg.py /tmp/vendor 1
+WORKDIR ..
